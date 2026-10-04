@@ -1,0 +1,1004 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0c19">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="指先で光の粒を動かす、一画面の感覚玩具。">
+  <title>ふにゃり</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: ui-rounded, "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
+      background: #090a15;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
+      background:
+        radial-gradient(80% 62% at 22% 12%, rgba(103, 92, 171, 0.24), transparent 66%),
+        radial-gradient(74% 72% at 84% 78%, rgba(50, 115, 126, 0.18), transparent 64%),
+        radial-gradient(58% 46% at 62% 42%, rgba(143, 89, 128, 0.10), transparent 70%),
+        linear-gradient(155deg, #111225 0%, #090a17 54%, #070911 100%);
+    }
+
+    body {
+      position: fixed;
+      inset: 0;
+      min-height: 100svh;
+      min-height: 100dvh;
+      color: rgba(250, 249, 255, 0.92);
+    }
+
+    .app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      isolation: isolate;
+    }
+
+    .app::before,
+    .app::after {
+      position: absolute;
+      z-index: -1;
+      width: min(72vw, 680px);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      content: "";
+      pointer-events: none;
+      opacity: 0.46;
+      transform: translate3d(0, 0, 0);
+    }
+
+    .app::before {
+      top: -35%;
+      left: -24%;
+      background: radial-gradient(circle, rgba(166, 144, 228, 0.13), transparent 68%);
+      animation: breathe-a 13s ease-in-out infinite alternate;
+    }
+
+    .app::after {
+      right: -28%;
+      bottom: -36%;
+      background: radial-gradient(circle, rgba(115, 220, 200, 0.10), transparent 68%);
+      animation: breathe-b 17s ease-in-out infinite alternate;
+    }
+
+    @keyframes breathe-a {
+      to { transform: translate3d(8vw, 5vh, 0) scale(1.08); }
+    }
+
+    @keyframes breathe-b {
+      to { transform: translate3d(-7vw, -4vh, 0) scale(1.1); }
+    }
+
+    .playfield {
+      position: absolute;
+      inset: 0;
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      outline: none;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    .playfield:active {
+      cursor: grabbing;
+    }
+
+    .playfield:focus-visible {
+      outline: 2px solid rgba(229, 221, 255, 0.72);
+      outline-offset: -7px;
+    }
+
+    .header {
+      position: absolute;
+      z-index: 2;
+      top: max(20px, env(safe-area-inset-top));
+      left: max(20px, env(safe-area-inset-left));
+      pointer-events: none;
+      text-shadow: 0 1px 18px rgba(0, 0, 0, 0.26);
+      transition: opacity 500ms ease;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.12rem, 4.7vw, 1.45rem);
+      font-weight: 650;
+      letter-spacing: 0.08em;
+    }
+
+    .hint {
+      margin: 7px 0 0;
+      color: rgba(238, 235, 250, 0.60);
+      font-size: clamp(0.72rem, 3vw, 0.82rem);
+      font-weight: 520;
+      letter-spacing: 0.06em;
+    }
+
+    .has-touched .header {
+      opacity: 0.62;
+    }
+
+    .controls-wrap {
+      position: absolute;
+      z-index: 3;
+      right: 0;
+      bottom: max(16px, env(safe-area-inset-bottom));
+      left: 0;
+      display: flex;
+      justify-content: center;
+      padding-right: max(14px, env(safe-area-inset-right));
+      padding-left: max(14px, env(safe-area-inset-left));
+      pointer-events: none;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(78px, auto));
+      gap: 5px;
+      padding: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 22px;
+      background: rgba(15, 16, 31, 0.62);
+      box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.045);
+      backdrop-filter: blur(14px) saturate(115%);
+      -webkit-backdrop-filter: blur(14px) saturate(115%);
+      pointer-events: auto;
+    }
+
+    .control {
+      min-width: 0;
+      min-height: 46px;
+      padding: 0 13px;
+      border: 0;
+      border-radius: 17px;
+      background: transparent;
+      color: rgba(246, 244, 255, 0.76);
+      font: inherit;
+      font-size: 0.77rem;
+      font-weight: 620;
+      letter-spacing: 0.025em;
+      white-space: nowrap;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: color 160ms ease, background 160ms ease, transform 110ms ease;
+    }
+
+    .control:hover {
+      background: rgba(255, 255, 255, 0.065);
+      color: rgba(255, 255, 255, 0.94);
+    }
+
+    .control:active {
+      transform: scale(0.97);
+    }
+
+    .control:focus-visible {
+      outline: 2px solid rgba(219, 211, 255, 0.78);
+      outline-offset: -2px;
+    }
+
+    .control[aria-pressed="true"] {
+      background: rgba(216, 207, 255, 0.13);
+      color: #f8f6ff;
+    }
+
+    .control .state {
+      margin-left: 0.28em;
+      color: rgba(187, 222, 218, 0.72);
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
+    }
+
+    .control[aria-pressed="false"] .state {
+      color: rgba(224, 221, 237, 0.42);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .paused .playfield {
+      cursor: default;
+    }
+
+    .app.paused::before,
+    .app.paused::after,
+    .app.is-hidden::before,
+    .app.is-hidden::after {
+      animation-play-state: paused;
+    }
+
+    @media (max-width: 360px) {
+      .controls {
+        width: 100%;
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .control {
+        padding-inline: 8px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .app::before,
+      .app::after {
+        animation: none;
+      }
+
+      .header,
+      .control {
+        transition-duration: 0.01ms;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" id="app">
+    <canvas
+      class="playfield"
+      id="playfield"
+      tabindex="0"
+      role="button"
+      aria-label="光の粒。タップ、ドラッグ、または Enter キーで動かせます。"
+      aria-keyshortcuts="Enter Space"
+    ></canvas>
+
+    <header class="header">
+      <h1>ふにゃり</h1>
+      <p class="hint">タップ・なぞる・はなす</p>
+    </header>
+
+    <div class="controls-wrap">
+      <div class="controls" aria-label="表示と音の設定">
+        <button class="control" id="soundButton" type="button" aria-pressed="false" aria-label="音をオンにする">
+          音<span class="state" id="soundState">OFF</span>
+        </button>
+        <button class="control" id="gentleButton" type="button" aria-pressed="false" aria-label="動きをゆるめる">
+          ゆるめ<span class="state" id="gentleState">OFF</span>
+        </button>
+        <button class="control" id="pauseButton" type="button" aria-pressed="false" aria-label="動きを止める">
+          <span id="pauseLabel">止める</span>
+        </button>
+      </div>
+    </div>
+
+    <p class="sr-only" id="status" aria-live="polite"></p>
+    <noscript><p class="sr-only">この遊びには JavaScript が必要です。</p></noscript>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const canvas = document.getElementById("playfield");
+      const ctx = canvas.getContext("2d", { alpha: true, desynchronized: true });
+      const app = document.getElementById("app");
+      const status = document.getElementById("status");
+      const soundButton = document.getElementById("soundButton");
+      const soundState = document.getElementById("soundState");
+      const gentleButton = document.getElementById("gentleButton");
+      const gentleState = document.getElementById("gentleState");
+      const pauseButton = document.getElementById("pauseButton");
+      const pauseLabel = document.getElementById("pauseLabel");
+
+      if (!ctx) {
+        status.textContent = "この端末では表示できません。";
+        return;
+      }
+
+      const TAU = Math.PI * 2;
+      const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+      const MAX_PARTICLES = 78;
+      const MAX_MOTES = 120;
+      const MAX_WAVES = 12;
+      const DPR_LIMIT = 2;
+      const colors = ["#d9ceff", "#b8e6df", "#f4cad6", "#b9d5fa", "#f6dfbd"];
+      const particles = [];
+      const motes = [];
+      const waves = [];
+      const pointers = new Map();
+      const sprites = colors.map(makeGlowSprite);
+      const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+      let width = 1;
+      let height = 1;
+      let dpr = 1;
+      let frameId = 0;
+      let resizeId = 0;
+      let lastFrame = 0;
+      let lastSimulation = 0;
+      let touched = false;
+      let manualPause = false;
+      let gentle = motionPreference.matches;
+      let gentleOverride = false;
+      let soundEnabled = false;
+      let audioContext = null;
+      let audioMaster = null;
+      let audioReady = null;
+      let randomState = 0x72a4f39d;
+
+      function random() {
+        randomState |= 0;
+        randomState = (randomState + 0x6d2b79f5) | 0;
+        let value = Math.imul(randomState ^ (randomState >>> 15), 1 | randomState);
+        value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
+        return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+      }
+
+      function hexToRgba(hex, alpha) {
+        const value = Number.parseInt(hex.slice(1), 16);
+        const red = (value >> 16) & 255;
+        const green = (value >> 8) & 255;
+        const blue = value & 255;
+        return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+      }
+
+      function makeGlowSprite(color) {
+        const sprite = document.createElement("canvas");
+        const size = 96;
+        sprite.width = size;
+        sprite.height = size;
+        const spriteContext = sprite.getContext("2d");
+        const gradient = spriteContext.createRadialGradient(48, 48, 0, 48, 48, 46);
+        gradient.addColorStop(0, "rgba(255, 255, 255, 0.96)");
+        gradient.addColorStop(0.09, hexToRgba(color, 0.94));
+        gradient.addColorStop(0.32, hexToRgba(color, 0.42));
+        gradient.addColorStop(0.72, hexToRgba(color, 0.09));
+        gradient.addColorStop(1, hexToRgba(color, 0));
+        spriteContext.fillStyle = gradient;
+        spriteContext.fillRect(0, 0, size, size);
+        return sprite;
+      }
+
+      function particleTargetCount() {
+        const areaCount = Math.round((width * height) / 8200);
+        const hardwareCap = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4 ? 54 : MAX_PARTICLES;
+        return Math.max(38, Math.min(hardwareCap, MAX_PARTICLES, areaCount));
+      }
+
+      function homeFor(particle, time) {
+        const motion = gentle ? 0.34 : 1;
+        const drift = particle.wander * motion;
+        return {
+          x: particle.nx * width + Math.sin(time * particle.speed + particle.phase) * drift,
+          y: particle.ny * height + Math.cos(time * particle.speed * 0.83 + particle.phase) * drift * 0.72
+        };
+      }
+
+      function addParticle(index, total, initial = false) {
+        const ratio = (index + 0.7) / Math.max(1, total);
+        const theta = index * GOLDEN_ANGLE + random() * 0.34;
+        const radius = Math.sqrt(ratio) * (0.42 + random() * 0.025);
+        const nx = 0.5 + Math.cos(theta) * radius;
+        const ny = 0.49 + Math.sin(theta) * radius * 0.79;
+        const particle = {
+          nx,
+          ny,
+          x: nx * width,
+          y: ny * height,
+          vx: 0,
+          vy: 0,
+          radius: 3.2 + Math.pow(random(), 1.7) * 9.6,
+          color: Math.floor(random() * colors.length),
+          phase: random() * TAU,
+          speed: 0.22 + random() * 0.28,
+          wander: 3 + random() * 8,
+          alpha: initial ? 0 : 0.52 + random() * 0.34,
+          targetAlpha: 0.52 + random() * 0.34,
+          pulse: random() * TAU
+        };
+        particles.push(particle);
+      }
+
+      function syncParticles(initial = false) {
+        const target = particleTargetCount();
+        while (particles.length < target) {
+          addParticle(particles.length, target, initial);
+        }
+        if (particles.length > target) {
+          particles.length = target;
+        }
+      }
+
+      function resize() {
+        resizeId = 0;
+        const oldWidth = width;
+        const oldHeight = height;
+        const rect = canvas.getBoundingClientRect();
+        width = Math.max(1, Math.round(rect.width));
+        height = Math.max(1, Math.round(rect.height));
+        dpr = Math.min(DPR_LIMIT, Math.max(1, window.devicePixelRatio || 1));
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        if (oldWidth > 1 && oldHeight > 1) {
+          const scaleX = width / oldWidth;
+          const scaleY = height / oldHeight;
+          for (const particle of particles) {
+            particle.x *= scaleX;
+            particle.y *= scaleY;
+            particle.vx *= scaleX;
+            particle.vy *= scaleY;
+          }
+          for (const mote of motes) {
+            mote.x *= scaleX;
+            mote.y *= scaleY;
+          }
+          for (const wave of waves) {
+            wave.x *= scaleX;
+            wave.y *= scaleY;
+          }
+        }
+
+        syncParticles(particles.length === 0);
+        draw(performance.now());
+      }
+
+      function scheduleResize() {
+        if (!resizeId) {
+          resizeId = requestAnimationFrame(resize);
+        }
+      }
+
+      function addWave(x, y, kind = "press", strength = 1) {
+        waves.push({
+          x,
+          y,
+          age: 0,
+          duration: kind === "release" ? 72 : 48,
+          maxRadius: Math.min(Math.max(width, height) * 0.34, kind === "release" ? 260 : 190),
+          strength,
+          kind,
+          color: Math.floor(random() * colors.length)
+        });
+        if (waves.length > MAX_WAVES) waves.shift();
+      }
+
+      function addMotes(x, y, count, energy, colorIndex) {
+        const available = Math.max(0, MAX_MOTES - motes.length);
+        const amount = Math.min(count, available);
+        for (let i = 0; i < amount; i += 1) {
+          const angle = random() * TAU;
+          const speed = energy * (0.35 + random() * 0.8);
+          motes.push({
+            x: x + Math.cos(angle) * random() * 12,
+            y: y + Math.sin(angle) * random() * 12,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            age: 0,
+            life: 34 + random() * 34,
+            radius: 1.2 + random() * 3.3,
+            color: colorIndex ?? Math.floor(random() * colors.length)
+          });
+        }
+      }
+
+      function nudgeToward(x, y, amount) {
+        const reach = Math.min(190, Math.max(116, width * 0.36));
+        for (const particle of particles) {
+          const dx = x - particle.x;
+          const dy = y - particle.y;
+          const distance = Math.hypot(dx, dy);
+          if (distance >= reach) continue;
+          const falloff = Math.pow(1 - distance / reach, 2);
+          particle.vx += dx * amount * falloff;
+          particle.vy += dy * amount * falloff;
+          particle.alpha = Math.min(1, particle.alpha + falloff * 0.22);
+        }
+      }
+
+      function releaseFrom(x, y, amount) {
+        const reach = Math.min(220, Math.max(142, width * 0.44));
+        for (const particle of particles) {
+          const dx = particle.x - x;
+          const dy = particle.y - y;
+          const distance = Math.max(1, Math.hypot(dx, dy));
+          if (distance >= reach) continue;
+          const falloff = Math.pow(1 - distance / reach, 2);
+          particle.vx += (dx / distance) * amount * falloff;
+          particle.vy += (dy / distance) * amount * falloff;
+        }
+      }
+
+      function pointerPosition(event) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: Math.min(width, Math.max(0, event.clientX - rect.left)),
+          y: Math.min(height, Math.max(0, event.clientY - rect.top))
+        };
+      }
+
+      function beginPointer(event) {
+        if (manualPause) return;
+        event.preventDefault();
+        const point = pointerPosition(event);
+        const now = performance.now();
+        const color = Math.floor(random() * colors.length);
+        pointers.set(event.pointerId, {
+          x: point.x,
+          y: point.y,
+          px: point.x,
+          py: point.y,
+          vx: 0,
+          vy: 0,
+          pressure: event.pressure > 0 ? event.pressure : 0.54,
+          time: now,
+          movedAt: now,
+          trailDistance: 0,
+          color
+        });
+
+        if (canvas.setPointerCapture) {
+          try { canvas.setPointerCapture(event.pointerId); } catch (_) { /* capture is optional */ }
+        }
+
+        if (!touched) {
+          touched = true;
+          app.classList.add("has-touched");
+        }
+
+        addWave(point.x, point.y, "press", 0.9);
+        addMotes(point.x, point.y, gentle ? 4 : 7, gentle ? 0.7 : 1.15, color);
+        nudgeToward(point.x, point.y, gentle ? 0.009 : 0.017);
+        playTone(178 + (point.x / width) * 74, 0.17, 0.09, point.x / width);
+        draw(now);
+        startLoop();
+      }
+
+      function movePointer(event) {
+        const pointer = pointers.get(event.pointerId);
+        if (!pointer || manualPause) return;
+        event.preventDefault();
+        const point = pointerPosition(event);
+        const now = performance.now();
+        const elapsed = Math.max(8, now - pointer.movedAt);
+        const dx = point.x - pointer.x;
+        const dy = point.y - pointer.y;
+        const distance = Math.hypot(dx, dy);
+        pointer.px = pointer.x;
+        pointer.py = pointer.y;
+        pointer.x = point.x;
+        pointer.y = point.y;
+        const velocityLimit = gentle ? 1.8 : 2.8;
+        pointer.vx = Math.max(-velocityLimit, Math.min(velocityLimit, dx / elapsed));
+        pointer.vy = Math.max(-velocityLimit, Math.min(velocityLimit, dy / elapsed));
+        pointer.pressure = event.pressure > 0 ? event.pressure : pointer.pressure;
+        pointer.movedAt = now;
+        pointer.trailDistance += distance;
+
+        const spacing = gentle ? 34 : 22;
+        if (pointer.trailDistance >= spacing) {
+          pointer.trailDistance %= spacing;
+          addMotes(point.x, point.y, 1, 0.44, pointer.color);
+        }
+      }
+
+      function finishPointer(event, cancelled = false) {
+        const pointer = pointers.get(event.pointerId);
+        if (!pointer) return;
+        if (event.cancelable) event.preventDefault();
+        pointers.delete(event.pointerId);
+
+        if (!cancelled && !manualPause) {
+          const held = Math.min(1, (performance.now() - pointer.time) / 560);
+          addWave(pointer.x, pointer.y, "release", 0.82 + held * 0.34);
+          addMotes(pointer.x, pointer.y, gentle ? 6 : 11, gentle ? 0.9 : 1.65, pointer.color);
+          releaseFrom(pointer.x, pointer.y, gentle ? 1.25 : 2.5);
+          playTone(236 + (pointer.y / height) * 66, 0.28, 0.075, pointer.x / width);
+        }
+      }
+
+      function update(delta, now) {
+        const time = now / 1000;
+        const step = Math.min(1.8, Math.max(0.25, delta));
+        const spring = gentle ? 0.0042 : 0.0066;
+        const damping = Math.pow(gentle ? 0.83 : 0.865, step);
+        const reach = Math.min(210, Math.max(132, width * 0.39));
+        const activePointers = [];
+
+        for (const pointer of pointers.values()) {
+          const idleFor = Math.max(0, now - pointer.movedAt);
+          const velocityFade = idleFor <= 24 ? 1 : Math.exp(-(idleFor - 24) / 85);
+          if (idleFor >= 520 || (Math.abs(pointer.vx) + Math.abs(pointer.vy)) * velocityFade < 0.002) {
+            pointer.vx = 0;
+            pointer.vy = 0;
+          }
+          activePointers.push({
+            pointer,
+            vx: pointer.vx * velocityFade,
+            vy: pointer.vy * velocityFade
+          });
+        }
+
+        for (const particle of particles) {
+          const home = homeFor(particle, time);
+          let ax = (home.x - particle.x) * spring;
+          let ay = (home.y - particle.y) * spring;
+
+          for (const activePointer of activePointers) {
+            const pointer = activePointer.pointer;
+            const dx = pointer.x - particle.x;
+            const dy = pointer.y - particle.y;
+            const distance = Math.hypot(dx, dy);
+            if (distance >= reach) continue;
+            const falloff = Math.pow(1 - distance / reach, 2.15);
+            const pressure = 0.62 + pointer.pressure * 0.62;
+            const pull = (gentle ? 0.0088 : 0.0175) * pressure * falloff;
+            ax += dx * pull;
+            ay += dy * pull;
+            ax += activePointer.vx * falloff * (gentle ? 0.9 : 1.75);
+            ay += activePointer.vy * falloff * (gentle ? 0.9 : 1.75);
+            particle.alpha = Math.min(1, particle.alpha + falloff * 0.035 * step);
+          }
+
+          for (const wave of waves) {
+            const dx = particle.x - wave.x;
+            const dy = particle.y - wave.y;
+            const distance = Math.max(1, Math.hypot(dx, dy));
+            const progress = wave.age / wave.duration;
+            const ring = 8 + wave.maxRadius * (1 - Math.pow(1 - Math.min(1, progress), 3));
+            const band = 26 + progress * 18;
+            const offset = Math.abs(distance - ring);
+            if (offset >= band) continue;
+            const envelope = Math.pow(1 - offset / band, 2) * (1 - progress) * wave.strength;
+            const direction = wave.kind === "press" ? -1 : 1;
+            const push = direction * envelope * (gentle ? 0.024 : 0.048);
+            ax += (dx / distance) * push;
+            ay += (dy / distance) * push;
+          }
+
+          particle.vx = (particle.vx + ax * step) * damping;
+          particle.vy = (particle.vy + ay * step) * damping;
+          particle.x += particle.vx * step;
+          particle.y += particle.vy * step;
+          particle.alpha += (particle.targetAlpha - particle.alpha) * 0.025 * step;
+          particle.pulse += 0.012 * step * (gentle ? 0.45 : 1);
+        }
+
+        for (let i = waves.length - 1; i >= 0; i -= 1) {
+          waves[i].age += step;
+          if (waves[i].age >= waves[i].duration) waves.splice(i, 1);
+        }
+
+        for (let i = motes.length - 1; i >= 0; i -= 1) {
+          const mote = motes[i];
+          mote.age += step;
+          mote.vx *= Math.pow(0.965, step);
+          mote.vy *= Math.pow(0.965, step);
+          mote.vy -= 0.004 * step;
+          mote.x += mote.vx * step;
+          mote.y += mote.vy * step;
+          if (mote.age >= mote.life) motes.splice(i, 1);
+        }
+      }
+
+      function drawWave(wave) {
+        const progress = Math.min(1, wave.age / wave.duration);
+        const radius = 8 + wave.maxRadius * (1 - Math.pow(1 - progress, 3));
+        const fade = Math.pow(1 - progress, 1.7) * wave.strength;
+        const color = colors[wave.color];
+
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        ctx.strokeStyle = hexToRgba(color, 0.21 * fade);
+        ctx.lineWidth = 1.2 + (1 - progress) * 2.4;
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, radius, 0, TAU);
+        ctx.stroke();
+
+        const glow = ctx.createRadialGradient(wave.x, wave.y, 0, wave.x, wave.y, Math.max(1, radius * 0.84));
+        glow.addColorStop(0, hexToRgba(color, 0.05 * fade));
+        glow.addColorStop(0.72, hexToRgba(color, 0.018 * fade));
+        glow.addColorStop(1, hexToRgba(color, 0));
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(wave.x, wave.y, radius * 0.84, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawPointer(pointer) {
+        const speed = Math.min(1, Math.hypot(pointer.vx, pointer.vy) / 1.5);
+        const radius = 54 + pointer.pressure * 31 + speed * 12;
+        const color = colors[pointer.color];
+        const gradient = ctx.createRadialGradient(pointer.x, pointer.y, 0, pointer.x, pointer.y, radius);
+        gradient.addColorStop(0, "rgba(255, 255, 255, 0.085)");
+        gradient.addColorStop(0.18, hexToRgba(color, 0.075));
+        gradient.addColorStop(0.68, hexToRgba(color, 0.025));
+        gradient.addColorStop(1, hexToRgba(color, 0));
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(pointer.x, pointer.y, radius, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function draw(now) {
+        ctx.clearRect(0, 0, width, height);
+
+        for (const wave of waves) drawWave(wave);
+        for (const pointer of pointers.values()) drawPointer(pointer);
+
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        for (const particle of particles) {
+          const breathe = 1 + Math.sin(particle.pulse) * (gentle ? 0.025 : 0.065);
+          const radius = particle.radius * breathe;
+          const size = radius * 6.6;
+          ctx.globalAlpha = particle.alpha;
+          ctx.drawImage(sprites[particle.color], particle.x - size / 2, particle.y - size / 2, size, size);
+        }
+
+        for (const mote of motes) {
+          const progress = mote.age / mote.life;
+          const alpha = Math.sin(Math.min(1, progress) * Math.PI) * 0.84;
+          const size = mote.radius * (5.1 + progress * 2.4);
+          ctx.globalAlpha = alpha;
+          ctx.drawImage(sprites[mote.color], mote.x - size / 2, mote.y - size / 2, size, size);
+        }
+        ctx.restore();
+
+        if (manualPause) {
+          ctx.save();
+          ctx.fillStyle = "rgba(8, 9, 18, 0.09)";
+          ctx.fillRect(0, 0, width, height);
+          ctx.restore();
+        }
+      }
+
+      function loop(now) {
+        frameId = 0;
+        if (manualPause || document.hidden) return;
+
+        const minimumInterval = gentle ? 1000 / 36 : 0;
+        if (minimumInterval && now - lastFrame < minimumInterval) {
+          frameId = requestAnimationFrame(loop);
+          return;
+        }
+
+        const elapsed = lastSimulation ? now - lastSimulation : 16.67;
+        lastSimulation = now;
+        lastFrame = now;
+        update(Math.min(32, elapsed) / 16.67, now);
+        draw(now);
+        frameId = requestAnimationFrame(loop);
+      }
+
+      function startLoop() {
+        if (frameId || manualPause || document.hidden) return;
+        lastSimulation = performance.now();
+        frameId = requestAnimationFrame(loop);
+      }
+
+      function stopLoop() {
+        if (frameId) cancelAnimationFrame(frameId);
+        frameId = 0;
+      }
+
+      async function ensureAudio() {
+        if (audioReady) return audioReady;
+        audioReady = (async () => {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) return false;
+          if (!audioContext) {
+            audioContext = new AudioContextClass({ latencyHint: "interactive" });
+            audioMaster = audioContext.createGain();
+            audioMaster.gain.value = 0.0001;
+            audioMaster.connect(audioContext.destination);
+          }
+          if (audioContext.state === "suspended") await audioContext.resume();
+          return audioContext.state === "running";
+        })();
+
+        try {
+          return await audioReady;
+        } finally {
+          audioReady = null;
+        }
+      }
+
+      function playTone(frequency, duration, volume, horizontal) {
+        if (!soundEnabled) return;
+        ensureAudio().then((ready) => {
+          if (!ready || !audioContext || !audioMaster || !soundEnabled) return;
+          const now = audioContext.currentTime;
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          const filter = audioContext.createBiquadFilter();
+          const panner = audioContext.createStereoPanner ? audioContext.createStereoPanner() : null;
+
+          oscillator.type = "sine";
+          oscillator.frequency.setValueAtTime(frequency, now);
+          oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.06, now + duration);
+          filter.type = "lowpass";
+          filter.frequency.value = 920;
+          filter.Q.value = 0.45;
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(Math.max(0.001, volume), now + 0.025);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+          if (panner) panner.pan.value = Math.max(-0.55, Math.min(0.55, horizontal * 1.1 - 0.55));
+
+          oscillator.connect(filter);
+          filter.connect(gain);
+          if (panner) {
+            gain.connect(panner);
+            panner.connect(audioMaster);
+          } else {
+            gain.connect(audioMaster);
+          }
+          oscillator.start(now);
+          oscillator.stop(now + duration + 0.035);
+        }).catch(() => { /* sound stays optional */ });
+      }
+
+      async function toggleSound() {
+        soundEnabled = !soundEnabled;
+        soundButton.setAttribute("aria-pressed", String(soundEnabled));
+        soundButton.setAttribute("aria-label", soundEnabled ? "音をオフにする" : "音をオンにする");
+        soundState.textContent = soundEnabled ? "ON" : "OFF";
+        status.textContent = soundEnabled ? "音をオンにしました。" : "音をオフにしました。";
+
+        if (soundEnabled) {
+          try {
+            const ready = await ensureAudio();
+            if (!ready || !audioMaster || !audioContext) throw new Error("audio unavailable");
+            if (!soundEnabled) return;
+            const now = audioContext.currentTime;
+            audioMaster.gain.cancelScheduledValues(now);
+            audioMaster.gain.setValueAtTime(Math.max(0.0001, audioMaster.gain.value), now);
+            audioMaster.gain.exponentialRampToValueAtTime(0.035, now + 0.06);
+            playTone(224, 0.22, 0.07, 0.5);
+          } catch (_) {
+            soundEnabled = false;
+            soundButton.setAttribute("aria-pressed", "false");
+            soundButton.setAttribute("aria-label", "音をオンにする");
+            soundState.textContent = "OFF";
+            status.textContent = "音を再生できません。音はオフです。";
+          }
+        } else if (audioContext && audioMaster) {
+          const now = audioContext.currentTime;
+          audioMaster.gain.cancelScheduledValues(now);
+          audioMaster.gain.setValueAtTime(Math.max(0.0001, audioMaster.gain.value), now);
+          audioMaster.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+          window.setTimeout(() => {
+            if (!soundEnabled && audioContext && audioContext.state === "running") {
+              audioContext.suspend().catch(() => {});
+            }
+          }, 90);
+        }
+      }
+
+      function setGentle(value, announce = true) {
+        gentle = value;
+        gentleButton.setAttribute("aria-pressed", String(gentle));
+        gentleButton.setAttribute("aria-label", gentle ? "通常の動きにする" : "動きをゆるめる");
+        gentleState.textContent = gentle ? "ON" : "OFF";
+        if (announce) status.textContent = gentle ? "動きをゆるめました。" : "通常の動きにしました。";
+        if (!manualPause) startLoop();
+      }
+
+      function toggleGentle() {
+        gentleOverride = true;
+        setGentle(!gentle);
+      }
+
+      function setPaused(value) {
+        manualPause = value;
+        app.classList.toggle("paused", manualPause);
+        pauseButton.setAttribute("aria-pressed", String(manualPause));
+        pauseButton.setAttribute("aria-label", manualPause ? "動きを再開する" : "動きを止める");
+        pauseLabel.textContent = manualPause ? "動かす" : "止める";
+        status.textContent = manualPause ? "動きを止めました。" : "動きを再開しました。";
+
+        if (manualPause) {
+          pointers.clear();
+          stopLoop();
+          draw(performance.now());
+        } else {
+          startLoop();
+        }
+      }
+
+      function keyboardPulse(event) {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        if (manualPause) return;
+        const id = -1;
+        const x = width * 0.5;
+        const y = height * 0.5;
+        const now = performance.now();
+        pointers.set(id, {
+          x, y, px: x, py: y, vx: 0, vy: 0, pressure: 0.56,
+          time: now, movedAt: now, trailDistance: 0, color: Math.floor(random() * colors.length)
+        });
+        addWave(x, y, "press", 0.9);
+        addMotes(x, y, gentle ? 4 : 7, gentle ? 0.7 : 1.15);
+        nudgeToward(x, y, gentle ? 0.009 : 0.017);
+        playTone(216, 0.17, 0.09, 0.5);
+        draw(now);
+        window.setTimeout(() => {
+          const pointer = pointers.get(id);
+          if (!pointer) return;
+          pointers.delete(id);
+          addWave(x, y, "release", 0.92);
+          addMotes(x, y, gentle ? 6 : 11, gentle ? 0.9 : 1.65, pointer.color);
+          releaseFrom(x, y, gentle ? 1.25 : 2.5);
+          playTone(272, 0.28, 0.075, 0.5);
+        }, gentle ? 210 : 135);
+      }
+
+      function handleVisibility() {
+        app.classList.toggle("is-hidden", document.hidden);
+        if (document.hidden) {
+          stopLoop();
+          pointers.clear();
+          if (audioContext && audioContext.state === "running") {
+            audioContext.suspend().catch(() => {});
+          }
+        } else {
+          draw(performance.now());
+          if (!manualPause) startLoop();
+        }
+      }
+
+      canvas.addEventListener("pointerdown", beginPointer, { passive: false });
+      canvas.addEventListener("pointermove", movePointer, { passive: false });
+      canvas.addEventListener("pointerup", (event) => finishPointer(event, false), { passive: false });
+      canvas.addEventListener("pointercancel", (event) => finishPointer(event, true), { passive: false });
+      canvas.addEventListener("lostpointercapture", (event) => finishPointer(event, true));
+      canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+      canvas.addEventListener("keydown", keyboardPulse);
+      soundButton.addEventListener("click", toggleSound);
+      gentleButton.addEventListener("click", toggleGentle);
+      pauseButton.addEventListener("click", () => setPaused(!manualPause));
+      document.addEventListener("visibilitychange", handleVisibility);
+      window.addEventListener("resize", scheduleResize, { passive: true });
+      window.addEventListener("orientationchange", scheduleResize, { passive: true });
+      const handleMotionPreference = (event) => {
+        if (!gentleOverride) setGentle(event.matches, false);
+      };
+      if (motionPreference.addEventListener) {
+        motionPreference.addEventListener("change", handleMotionPreference);
+      } else if (motionPreference.addListener) {
+        motionPreference.addListener(handleMotionPreference);
+      }
+
+      setGentle(gentle, false);
+      app.classList.toggle("is-hidden", document.hidden);
+      resize();
+      startLoop();
+    })();
+  </script>
+</body>
+</html>
